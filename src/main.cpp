@@ -1,3 +1,5 @@
+#define STB_IMAGE_IMPLEMENTATION
+
 // standard includes
 #include <iostream>
 #include <vector>
@@ -6,7 +8,6 @@
 // 3rd party includes
 #include <termviz.hpp>
 #include <taglib/fileref.h>
-#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 // project includes
@@ -16,18 +17,22 @@ int main() {
     const std::string dir = "C:/Users/shadows box/Downloads";
     std::vector<fs::path> mp3Files = getMP3Files(dir);
 
-    std::cout << "Total MP3 files: " << mp3Files.size() << '\n';
+    termviz::clear_screen();
+    termviz::Window thumbnail(1, 1, 180, 19);
+    termviz::Window info(1, 20, 180, 5);
 
     for (const fs::path& mp3File : mp3Files) {
         TagLib::FileRef f(mp3File.c_str());
         if (!f.isNull() && f.tag()) {
             TagLib::Tag* tag = f.tag();
-            std::cout << "Title: " << tag->title().to8Bit(true) << std::endl;
-            std::cout << "Artist: " << tag->artist().to8Bit(true) << std::endl;
-            std::cout << "Album: " << tag->album().to8Bit(true) << std::endl;
-            std::cout << "--------------------------" << std::endl;
+            info.print_msg("Title " + tag->title().to8Bit(true));
+            info.print_msg("Artist " + tag->artist().to8Bit(true));
+            info.print_msg("Album: " + tag->album().to8Bit(true));            
         }
+        info.render();
     }
+
+    termviz::reset_cursor();
 }
 
 

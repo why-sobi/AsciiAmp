@@ -1,3 +1,7 @@
 build/
 .cache/
 libs/
+
+# music setup/files
+spotDL/music/
+spotDL/venv/
