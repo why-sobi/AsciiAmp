@@ -6,6 +6,8 @@
 // 3rd party includes
 #include <termviz.hpp>
 #include <taglib/fileref.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 // project includes
 #include <temp.hpp>
@@ -31,6 +33,6 @@ int main() {
 
 /*
 Put all headers in the include dir
-libs\eigen
+"${CMAKE_CURRENT_SOURCE_DIR}libs/stb" 
 */
 

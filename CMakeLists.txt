@@ -19,7 +19,8 @@ target_compile_definitions(MyMusicApp PRIVATE TAGLIB_STATIC)
 target_include_directories(MyMusicApp PRIVATE 
     include    
     libs/termviz
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/taglib/dist/include" 
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/taglib/dist/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/stb" 
 )
 
 find_library(TAGLIB_PATH 
