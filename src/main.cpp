@@ -3,36 +3,47 @@
 // standard includes
 #include <iostream>
 #include <vector>
+#include <string_view>
 #include <random>
 
 // 3rd party includes
 #include <termviz.hpp>
-#include <taglib/fileref.h>
-#include "stb_image.h"
 
 // project includes
-#include <temp.hpp>
+#include <music.hpp>
+#include <image.hpp>
+
+template <typename T>
+std::ostream& operator << (std::ostream& out, const std::vector<T>& obj) {
+    for (const T& val : obj) { out << val; }
+    return out;
+} 
+
+void printCover(const Music& music) { // wrapping in function release memory asap
+    int window_width = 70, window_height = 25; // as height is double than width in terminal
+    termviz::Window window(1, 1, window_width, window_height);
+
+    Image img(music.coverArt);
+    img.downScale(window.get_w(), window.get_h());
+
+    auto [characters, colors] = img.toAscii();
+    termviz::Visualizer::Plots::draw_frame(window, characters, colors);
+    window.render();
+} 
 
 int main() {
-    const std::string dir = "C:/Users/shadows box/Downloads";
-    std::vector<fs::path> mp3Files = getMP3Files(dir);
-
     termviz::clear_screen();
-    termviz::Window thumbnail(1, 1, 180, 19);
-    termviz::Window info(1, 20, 180, 5);
+    std::vector<Music> musicLibrary = getMusicFromPath(MUSIC_PATH);
 
-    for (const fs::path& mp3File : mp3Files) {
-        TagLib::FileRef f(mp3File.c_str());
-        if (!f.isNull() && f.tag()) {
-            TagLib::Tag* tag = f.tag();
-            info.print_msg("Title " + tag->title().to8Bit(true));
-            info.print_msg("Artist " + tag->artist().to8Bit(true));
-            info.print_msg("Album: " + tag->album().to8Bit(true));            
-        }
-        info.render();
+    for (const Music& music : musicLibrary) {
+        printCover(music);
+            
+        termviz::reset_cursor();
+        std::cout << music.title << '\n'; 
+
+        std::this_thread::sleep_for(std::chrono::seconds(5));
     }
-
-    termviz::reset_cursor();
+    return 0;
 }
 
 
