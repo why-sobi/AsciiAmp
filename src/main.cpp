@@ -20,7 +20,7 @@ std::ostream& operator << (std::ostream& out, const std::vector<T>& obj) {
 } 
 
 void printCover(const Music& music) { // wrapping in function release memory asap
-    int window_width = 70, window_height = 25; // as height is double than width in terminal
+    int window_width = 75, window_height = 25; // as height is double than width in terminal
     termviz::Window window(1, 1, window_width, window_height);
 
     Image img(music.coverArt);

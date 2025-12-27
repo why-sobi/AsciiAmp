@@ -30,6 +30,22 @@ public:
         }
     }
 
+    Image(const std::string& path) {
+        // stb_image decodes the JPEG/PNG bytes into raw RGB bytes
+        unsigned char* decoded = stbi_load(
+            path.c_str(), 
+            &width, &height, &channels, 
+            3
+        );
+
+        if (decoded) {
+            // Assign the raw C-pointer data to our C++ vector
+            rgb_pixels.assign(decoded, decoded + (width * height * 3));
+            channels = 3;
+            stbi_image_free(decoded); // Clean up the raw C-pointer
+        }
+    }
+
     // Accessor for your processing functions
     uint8_t* at(int x, int y) {
         if (x < 0 || x >= width || y < 0 || y >= height) throw std::out_of_range("Index out of range access\n");
@@ -99,7 +115,7 @@ public:
 
     std::pair<std::vector<char>, std::vector<termviz::COLOR>> toAscii() {
         static constexpr char CHAR_MAP[] = "%&8@#";
-        constexpr float contrast = 1.35f; // Increase this to make it punchier
+        constexpr float contrast = 1.45f; // Increase this to make it punchier
         constexpr float brightness = -10.0f; // Decrease this to "darken" the detection
 
         std::vector<char> chars;
@@ -118,9 +134,9 @@ public:
                 int b = static_cast<int>((pixel[2] + brightness) * contrast);
 
                 // Clamp to 0-255 so we don't overflow
-                r = std::clamp(r, 0, 255);
-                g = std::clamp(g, 0, 255);
-                b = std::clamp(b, 0, 255);
+                r = std::clamp(r, 15, 255);
+                g = std::clamp(g, 15, 255);
+                b = std::clamp(b, 15, 255);
                 
                 // general formula idk how it was derived
                 float luminance = (0.2126f * r + 0.7152f * g + 0.0722f * b) / 255.0f;
