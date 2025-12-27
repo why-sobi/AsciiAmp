@@ -5,6 +5,7 @@
 #include <vector>
 #include <string_view>
 #include <random>
+#include <ranges>
 
 // 3rd party includes
 #include <termviz.hpp>
@@ -20,10 +21,23 @@ std::ostream& operator << (std::ostream& out, const std::vector<T>& obj) {
 } 
 
 void printCover(const Music& music) { // wrapping in function release memory asap
-    int window_width = 75, window_height = 25; // as height is double than width in terminal
+    int window_width = 120, window_height = 35; // as height is double than width in terminal
     termviz::Window window(1, 1, window_width, window_height);
 
     Image img(music.coverArt);
+    img.downScale(window.get_w(), window.get_h());
+    
+    auto [characters, colors] = img.toAscii();
+    termviz::Visualizer::Plots::draw_frame(window, characters, colors);
+    window.render();
+
+} 
+
+void printCover(const std::string& path = "C:/Users/shadows box/Downloads/1.jpg") { // wrapping in function release memory asap
+    int window_width = 75, window_height = 25; // as height is double than width in terminal
+    termviz::Window window(1, 1, window_width, window_height);
+
+    Image img(path);
     img.downScale(window.get_w(), window.get_h());
 
     auto [characters, colors] = img.toAscii();
@@ -34,6 +48,7 @@ void printCover(const Music& music) { // wrapping in function release memory asa
 int main() {
     termviz::clear_screen();
     std::vector<Music> musicLibrary = getMusicFromPath(MUSIC_PATH);
+    // printCover(musicLibrary[musicLibrary.size() - 1]);
 
     for (const Music& music : musicLibrary) {
         printCover(music);
@@ -43,6 +58,10 @@ int main() {
 
         std::this_thread::sleep_for(std::chrono::seconds(5));
     }
+    // printCover();
+    termviz::reset_cursor();
+    std::cout << "Done!";
+
     return 0;
 }
 
