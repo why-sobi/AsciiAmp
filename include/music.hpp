@@ -3,29 +3,75 @@
 #include <filesystem>
 #include <vector>
 #include <string_view>
+#include <atomic>
+
 #include <taglib/fileref.h>
 #include <taglib/mpegfile.h>
 #include <taglib/id3v2tag.h>
 #include <taglib/attachedpictureframe.h>
-
+#include <minimp3.h>
+#include <minimp3_ex.h>
 
 inline constexpr char MUSIC_PATH[] = "../spotDL/music/";
 
 namespace fs = std::filesystem;
 
 struct Music {
+    int sample_rate;
+    std::atomic<size_t> playbackIndex{0}; // read/write is atomic without mutex
     std::string title;
     std::string artist;
     std::string album;
     std::string duration;
     std::vector<uint8_t> coverArt;
+    std::vector<float> monoSamples;
 
     Music() {}
-    Music(std::string t, std::string ar, std::string al, std::string d, std::vector<uint8_t> art) 
+    
+    Music(const fs::path& path) {
+        { // have to make the MPEG go out of scope so it leaves the file and minimp3 can use it
+            TagLib::MPEG::File f(path.c_str());
+        
+            artist = "Unknown", title = "Unknown", album = "Unknown", duration = "0:00";
+
+            if (f.isValid()) {
+                // Text Metadata
+                if (f.tag()) {
+                    TagLib::Tag *tag = f.tag();
+                    title = tag->title().to8Bit(true);
+                    artist = tag->artist().to8Bit(true);
+                    album = tag->album().to8Bit(true);
+                }
+
+                // Duration logic
+                if (f.audioProperties()) {
+                    int sec = f.audioProperties()->lengthInSeconds();
+                    duration = std::to_string(sec / 60) + ":" + (sec % 60 < 10 ? "0" : "") + std::to_string(sec % 60);
+                }
+
+                // 2. Extract Album Art (APIC Frame)
+                if (f.ID3v2Tag()) {
+                    auto frameList = f.ID3v2Tag()->frameList("APIC");
+                    if (!frameList.isEmpty()) {
+                        auto* frame = static_cast<TagLib::ID3v2::AttachedPictureFrame*>(frameList.front());
+                        TagLib::ByteVector pictureData = frame->picture();
+                        
+                        // Copy binary data into our vector
+                        coverArt.assign(pictureData.data(), pictureData.data() + pictureData.size());
+                    }
+                }
+            }
+        }
+        load(path.string());
+    }
+    
+    Music(int sample_rate, std::string t, std::string ar, std::string al, std::string d, std::vector<uint8_t> art, std::vector<float> samples) 
     // !NOT const & it'll mostly be used to read a lot of data instead of hardcoded data mutiple moving is faster (look into the extractMusicInfo function)
-        : title(std::move(t)), artist(std::move(ar)), 
-          album(std::move(al)), duration(std::move(d)), 
-          coverArt(std::move(art)) {}
+    // samples are expected to be mono
+    : sample_rate(sample_rate),
+        title(std::move(t)), artist(std::move(ar)), 
+        album(std::move(al)), duration(std::move(d)), 
+        coverArt(std::move(art)), monoSamples(std::move(samples)) {}
     
     Music(Music&& other) noexcept :
         title(std::move(other.title)),
@@ -45,12 +91,42 @@ struct Music {
     }
     
     friend std::ostream& operator << (std::ostream& out, const Music& object) {
-        out << "Title: " << object.title 
+        out << "Sample Rate: " << object.sample_rate
+        << "\nTitle: " << object.title 
         << "\nArtist: " << object.artist 
         << "\nAlbum: " << object.album 
         << "\nDuration: " << object.duration;
         return out;
     } 
+
+private:   
+    // Inside your Music class
+    void load(const std::string& path) {
+        mp3dec_t mp3d;
+        mp3dec_init(&mp3d); 
+        mp3dec_file_info_t info;
+
+        int error = mp3dec_load(&mp3d, path.c_str(), &info, NULL, NULL);
+
+        if (error != 0) {
+            throw std::runtime_error("minimp3 error code: " + std::to_string(error));
+        }
+
+        this->monoSamples.reserve(info.samples / info.channels);
+
+        if (info.channels == 2) { // [-1, 1] range for fft
+            for (size_t i = 0; i < info.samples; i += 2) {
+                float mono = (info.buffer[i] + info.buffer[i + 1]) / 65536.0f;
+                this->monoSamples.push_back(mono);
+            }
+        } else {
+            for (size_t i = 0; i < info.samples; i++) {
+                this->monoSamples.push_back(info.buffer[i] / 32768.0f);
+            }
+        }
+
+        free(info.buffer); 
+    }
 };
 
 std::vector<fs::path> getMP3Files(const std::string& dir) {
@@ -67,55 +143,4 @@ std::vector<fs::path> getMP3Files(const std::string& dir) {
     }
 
     return mp3Files;
-}
-
-
-Music extractMusicInfo(const fs::path& path) {
-    // 1. Open the file specifically as an MPEG file for ID3v2 access
-    TagLib::MPEG::File f(path.c_str());
-    
-    std::string artist = "Unknown", title = "Unknown", album = "Unknown", duration = "0:00";
-    std::vector<uint8_t> coverArt;
-
-    if (f.isValid()) {
-        // Text Metadata
-        if (f.tag()) {
-            TagLib::Tag *tag = f.tag();
-            title = tag->title().to8Bit(true);
-            artist = tag->artist().to8Bit(true);
-            album = tag->album().to8Bit(true);
-        }
-
-        // Duration logic
-        if (f.audioProperties()) {
-            int sec = f.audioProperties()->lengthInSeconds();
-            duration = std::to_string(sec / 60) + ":" + (sec % 60 < 10 ? "0" : "") + std::to_string(sec % 60);
-        }
-
-        // 2. Extract Album Art (APIC Frame)
-        if (f.ID3v2Tag()) {
-            auto frameList = f.ID3v2Tag()->frameList("APIC");
-            if (!frameList.isEmpty()) {
-                auto* frame = static_cast<TagLib::ID3v2::AttachedPictureFrame*>(frameList.front());
-                TagLib::ByteVector pictureData = frame->picture();
-                
-                // Copy binary data into our vector
-                coverArt.assign(pictureData.data(), pictureData.data() + pictureData.size());
-            }
-        }
-    }
-
-    return Music(std::move(title), std::move(artist), std::move(album), std::move(duration), std::move(coverArt));
-}
-
-std::vector<Music> getMusicFromPath(const std::string& dir) {
-    std::vector<fs::path> paths = getMP3Files(dir);
-    std::vector<Music> music;
-    music.reserve(paths.size());
-
-    for (const fs::path& path : paths) {
-        music.emplace_back(extractMusicInfo(path));
-    }
-
-    return music;
 }

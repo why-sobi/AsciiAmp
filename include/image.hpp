@@ -1,7 +1,5 @@
 # pragma once
 
-#define STB_IMAGE_IMPLEMENTATION
-
 #include <iostream>
 #include <vector>
 #include <stb_image.h>
@@ -171,7 +169,7 @@ public:
         this->height = new_height;
     }
 
-    std::pair<std::vector<char>, std::vector<termviz::COLOR>> toAscii(float contrast=8.0f, float brightness=10.0f, float midpoint=0.38f) {
+    std::pair<std::vector<char>, std::vector<termviz::COLOR>> toAscii(float contrast=8.5f, float brightness=10.0f, float midpoint=0.35f) {
         // Increase contrast to make it punchier
         // Decrease brightness to "darken" the detection
         
