@@ -1,11 +1,6 @@
-#define STB_IMAGE_IMPLEMENTATION
-
 // standard includes
 #include <iostream>
 #include <vector>
-#include <string_view>
-#include <random>
-#include <ranges>
 
 // 3rd party includes
 #include <termviz.hpp>
@@ -13,52 +8,35 @@
 // project includes
 #include <music.hpp>
 #include <image.hpp>
-
-template <typename T>
-std::ostream& operator << (std::ostream& out, const std::vector<T>& obj) {
-    for (const T& val : obj) { out << val; }
-    return out;
-} 
-
-void printCover(const Music& music) { // wrapping in function release memory asap
-    int window_width = 120, window_height = 35; // as height is double than width in terminal
-    termviz::Window window(1, 1, window_width, window_height);
-
-    Image img(music.coverArt);
-    img.downScale(window.get_w(), window.get_h());
-    
-    auto [characters, colors] = img.toAscii();
-    termviz::Visualizer::Plots::draw_frame(window, characters, colors);
-    window.render();
-
-} 
-
-void printCover(const std::string& path = "C:/Users/shadows box/Downloads/1.jpg") { // wrapping in function release memory asap
-    int window_width = 75, window_height = 25; // as height is double than width in terminal
-    termviz::Window window(1, 1, window_width, window_height);
-
-    Image img(path);
-    img.downScale(window.get_w(), window.get_h());
-
-    auto [characters, colors] = img.toAscii();
-    termviz::Visualizer::Plots::draw_frame(window, characters, colors);
-    window.render();
-} 
+#include <utils.hpp>
 
 int main() {
     termviz::clear_screen();
     std::vector<Music> musicLibrary = getMusicFromPath(MUSIC_PATH);
     // printCover(musicLibrary[musicLibrary.size() - 1]);
 
+    termviz::Window fft(IMAGE_W + 1, 1, FULL_WINDOW_WIDTH - IMAGE_W - 1, IMAGE_H, "Visualizer");
+    termviz::Window title(1, IMAGE_H + 1, FULL_WINDOW_WIDTH - 1, TITLE_H);
+    termviz::Window playback(1, IMAGE_H + TITLE_H + 1, FULL_WINDOW_WIDTH - 1, 10, "Playback");
+
+
     for (const Music& music : musicLibrary) {
         printCover(music);
-            
-        termviz::reset_cursor();
-        std::cout << music.title << '\n'; 
+        
+        title.clean_buffer();
+        title.print(0, getPadding(music.title, title.get_w()), format(toUpper(music.title), BOLD));
+        title.print(1, getPadding(music.artist, title.get_w()), format(toUpper(music.artist), UNDERLINE));
+        title.print(2, getPadding(music.album, title.get_w()), format(toUpper(music.album)));
 
-        std::this_thread::sleep_for(std::chrono::seconds(5));
+        title.render(true); 
+
+        for (int i = 0; i < 10; i++) {
+            draw_random_bars(fft);
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+
+        std::this_thread::sleep_for(std::chrono::seconds(2));
     }
-    // printCover();
     termviz::reset_cursor();
     std::cout << "Done!";
 
