@@ -17,6 +17,7 @@ inline extern constexpr char DIM_BOLD[] = "\033[2m";
 inline extern constexpr char ITALIC[] = "\033[3m";
 inline extern constexpr char UNDERLINE[] = "\033[4m";
 
+constexpr float REFERENCE = 40.0f; // what's considered loud 
 
 template <typename T>
 T random_gen(const T min, const T max) {
@@ -88,70 +89,95 @@ int getPadding(const std::string& str, int window_w) {
     return padding;
 }
 
-// std::vector<float> getFFTwindow(const Playback& playbackInfo, size_t window_size = 1024) { // window to send to kissfft 
-//     std::vector<float> window(window_size, 0.0f);
-//     size_t currPos = playbackInfo.playhead.load();
+std::vector<float> getFFTwindow(const Playback& playbackInfo, size_t window_size = 1024) { // window to send to kissfft 
+    std::vector<float> window(window_size, 0.0f);
+    size_t currPos = playbackInfo.playhead.load();
 
-//     for (size_t i = 0; i < window_size; i++) {
-//         size_t idx = currPos + i;
-//         if (idx < playbackInfo.samples->size()) { window[i] = playbackInfo.samples->at(idx); }
-//         else break;
-//     }
+    for (size_t i = 0; i < window_size; i++) {
+        size_t idx = currPos + i;
+        if (idx < playbackInfo.samples->size()) { window[i] = playbackInfo.samples->at(idx); }
+        else break;
+    }
 
-//     return window;
-// }
+    return window;
+}
 
-// std::vector<int> getNbars(const Playback& playbackInfo, int nbars, int maxHeight) {
-//     std::vector<float> window = getFFTwindow(playbackInfo);
-//     size_t nfft = window.size();
+// NOTE: cfg is a pointer hence by value
+// also returns mirrored maxBars (calculates fft for maxBars / 2) then mirrors it
+std::vector<int> getNbars(const Playback& playbackInfo, kiss_fft_cfg cfg, int maxBars, int maxHeight) {
+    std::vector<float> window = getFFTwindow(playbackInfo);
+    size_t nfft = window.size();
 
-//     // now we setup kissfft
-//     kiss_fft_cfg cfg = kiss_fit_alloc(int(nfft), 0, nullptr, nullptr);
+    // setup input and output (cpx is a struct with .r and .i for real and imaginary part respectively)
+    std::vector<kiss_fft_cpx> in(nfft);
+    std::vector<kiss_fft_cpx> out(nfft);
 
-//     // setup input and output (cpx is a struct with .r and .i for real and imaginary part respectively)
-//     std::vector<kiss_fft_cpx> in(nfft);
-//     std::vector<kiss_fft_cpx> out(nfft);
+    for (int i = 0; i < nfft; ++i) {
+        in[i].r = window[i];
+        in[i].i = 0.0f; // Audio samples have no imaginary part
+    }
 
-//     for (int i = 0; i < nfft; ++i) {
-//         in[i].r = window[i];
-//         in[i].i = 0.0f; // Audio samples have no imaginary part
-//     }
+    kiss_fft(cfg, in.data(), out.data());
 
-//     kiss_fft(cfg, in.data(), out.data());
+    // Calculate Magnitudes
+    // The result is symmetrical, so we only need the first half (0 to nfft/2)
+    std::vector<float> magnitudes;
+    magnitudes.reserve(nfft / 2);
 
-//     // Calculate Magnitudes
-//     // The result is symmetrical, so we only need the first half (0 to nfft/2)
-//     std::vector<float> magnitudes;
-//     magnitudes.reserve(nfft / 2);
+    for (int i = 0; i < nfft / 2; ++i) {
+        // Pythagorean theorem to get the "loudness" of this frequency
+        float mag = std::sqrt(out[i].r * out[i].r + out[i].i * out[i].i);
+        magnitudes.push_back(mag);
+    }
 
-//     for (int i = 0; i < nfft / 2; ++i) {
-//         // Pythagorean theorem to get the "loudness" of this frequency
-//         float mag = std::sqrt(out[i].r * out[i].r + out[i].i * out[i].i);
-//         magnitudes.push_back(mag);
-//     }
+    // Now we can convert the magnitudes to bars
+    // for one side we calculate
 
-//     // Clean up the plan to avoid memory leaks
-//     free(cfg);
+    int half_size = (maxBars & 1) ? (maxBars / 2) + 1 : maxBars / 2;
+    std::vector<int> bars(half_size, 0);
+    int numBins = (int)magnitudes.size();
 
-//     // Now we can convert the magnitudes to bars
-//     std::vector<int> bars(nbars, 0);
-//     int binsPerBar = (int)magnitudes.size() / nbars;
-
-//     for (int i = 0; i < nbars; ++i) {
-//         float sum = 0;
-//         for (int j = 0; j < binsPerBar; ++j) {
-//             sum += magnitudes[i * binsPerBar + j];
-//         }
+    for (int i = 0; i < half_size; ++i) {
+        // 1. Logarithmic Binning (Frequency Spacing)
+        float startRel = (float)i / half_size;
+        float endRel = (float)(i + 1) / half_size;
         
-//         float average = sum / binsPerBar;
-        
-//         // Scale the average to fit your terminal window height
-//         // You might need a "sensitivity" multiplier here
-//         int height = (int)(average * 10.0f); 
-//         if (height > maxHeight) height = maxHeight;
-        
-//         bars[i] = height;
-//     }
-//     return bars;
-// }
+        int startBin = (int)(pow(startRel, 1.5f) * numBins);
+        int endBin = (int)(pow(endRel, 1.5f) * numBins);
+        if (endBin <= startBin) endBin = startBin + 1;
+
+        float sum = 0;
+        for (int j = startBin; j < endBin && j < numBins; ++j) {
+            sum += magnitudes[j];
+        }
+        float avg = sum / (endBin - startBin);
+
+        float intensity = 0;
+        if (avg > 0) {
+            // 1. Normalize: Get a ratio between 0.0 and 1.0
+            float ratio = avg / REFERENCE;
+            
+            // 2. Log Scale: This squashes the range so it's not "all or nothing"
+            // Use log2 or a smaller multiplier than 20 to keep it chill
+            intensity = 20 * log10(1.0f + ratio); 
+        }
+
+        // 3. Scale to maxHeight
+        // This ensures 'intensity' acts as a percentage (0.0 to 1.0) of your height
+        int h = (int)(intensity * maxHeight) + 1; // we scaled everything by +1
+
+        bars[i] = std::clamp(h, 0, maxHeight);
+    }
+
+    std::vector<int> fullBars;
+    fullBars.reserve(maxBars);
+
+    for (int i = half_size - 1; i >= (maxBars & 1) ; i--) {
+        fullBars.push_back(bars[i]);
+    }
+
+    // the remaining half
+    fullBars.insert(fullBars.end(), bars.begin(), bars.end());
+    return fullBars;
+}
 

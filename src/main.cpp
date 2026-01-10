@@ -43,6 +43,9 @@ int main() {
 
     int barWidth = 7;
     int maxBars = Viz::getMaxBars(fft, barWidth);
+    int sample_window_size = 1024;
+
+    std::vector<termviz::COLOR> barColors(maxBars, termviz::COLOR(termviz::COLOR::BLUE));
 
     // objects needed
     Playback playbackInfo;
@@ -51,6 +54,8 @@ int main() {
     config.playback.channels = 1;               // Mono (since every music was converted into mono)
     config.dataCallback      = data_callback;   // The function we wrote in playback.hpp
     config.pUserData         = &playbackInfo;   // the info it'll send to the data_callback function
+    
+    kiss_fft_cfg cfg = kiss_fft_alloc(sample_window_size, 0, nullptr, nullptr); 
 
     bool deviceInitialized = false;
     ma_device device; // speaker
@@ -81,8 +86,6 @@ int main() {
         ma_device_start(&device); // creates its own thread for music playback
 
         while (playbackInfo.isPlaying) { // this is falsed in our data_callback function 
-            std::this_thread::sleep_for(30_FPS); 
-
             // next music
             if (kbhit()) { // if keyboard hit
                 int code = _getch();
@@ -108,13 +111,18 @@ int main() {
                 }
             }
 
-            // equalizer stuff 
-            
+            // equalizer stuff
+            Viz::draw_bars(fft, getNbars(playbackInfo, cfg, maxBars, fft.get_h()), barWidth, barColors);
+            fft.render();
+        
+            std::this_thread::sleep_for(30_FPS); 
         }   
 
         ma_device_stop(&device);
 
     }
+
+    free(cfg);
 
     tv::reset_cursor();
     return 0;
