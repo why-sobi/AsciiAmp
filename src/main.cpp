@@ -1,4 +1,5 @@
 #define MINIMP3_IMPLEMENTATION 
+#define MINIAUDIO_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 
 // standard includes
@@ -11,16 +12,18 @@
 // project includes
 #include <music.hpp>
 #include <image.hpp>
+#include <playback.hpp>
 #include <utils.hpp>
 
 #include <iostream>
 #include <thread>
 #include <vector>
 #include <chrono>
+#include <conio.h>
 
-// Using namespace aliases to make the code more readable
 using namespace std::chrono_literals;
 namespace tv = termviz;
+namespace Viz = termviz::Visualizer::Plots;
 
 void updatePlaybackUI(tv::Window& win, const std::vector<int>& heights) {
     win.clean_buffer();
@@ -32,21 +35,34 @@ void updatePlaybackUI(tv::Window& win, const std::vector<int>& heights) {
 
 int main() {
     tv::clear_screen();
-    auto musicLibrary = getMP3Files(MUSIC_PATH);
-    kiss_fft_cfg cfg = kiss_fft_alloc(1024, 0, nullptr, nullptr);
+    std::vector<fs::path> musicLibrary = getMP3Files(MUSIC_PATH);
 
-    // 1. UI Layout Setup
     tv::Window fft(IMAGE_W + 1, 1, FULL_WINDOW_WIDTH - IMAGE_W - 1, IMAGE_H, "Visualizer");
     tv::Window title(1, IMAGE_H + 1, FULL_WINDOW_WIDTH - 1, TITLE_H, "Now Playing");
     tv::Window playback(1, IMAGE_H + TITLE_H + 1, FULL_WINDOW_WIDTH - 1, 10, "Playback");
 
     int barWidth = 7;
-    int maxBars = tv::Visualizer::Plots::getMaxBars(fft, barWidth);
+    int maxBars = Viz::getMaxBars(fft, barWidth);
 
-    for (const auto& path : musicLibrary) {
-        Music music(path);
-        
-        // 2. Track Header Display
+    // objects needed
+    Playback playbackInfo;
+    ma_device_config config = ma_device_config_init(ma_device_type_playback);
+    config.playback.format   = ma_format_f32;   // since std::vector<float> for samples
+    config.playback.channels = 1;               // Mono (since every music was converted into mono)
+    config.dataCallback      = data_callback;   // The function we wrote in playback.hpp
+    config.pUserData         = &playbackInfo;   // the info it'll send to the data_callback function
+
+    bool deviceInitialized = false;
+    ma_device device; // speaker
+
+    // in loop we update rest of the config as necessary
+
+    // ------------------------ PLAYBACK LOOP ----------------------------
+    for (const fs::path path : musicLibrary) {
+        Music music(path);                      // loading music
+        playbackInfo = music;                   // creating music reference for playback (reduce casting cost)
+
+        // print and setup everything else
         printCover(music);
         title.clean_buffer();
         title.print(0, getPadding(music.title, title.get_w()), format(toUpper(music.title), BOLD));
@@ -54,42 +70,52 @@ int main() {
         title.print(2, getPadding(music.album, title.get_w()), format(toUpper(music.album)));
         title.render(true); 
 
-        // 3. Playback Loop
-        // size_t playhead = 0;
-        // const int samplesPerFrame = music.sample_rate / 60; 
-        
-        // while (playhead + 1024 < music.monoSamples.size()) {
-        //     auto frameStart = std::chrono::steady_clock::now();
+        // music related config
+        config.sampleRate = music.sample_rate; // NOTE: When changing this we need to reconfigure our ma_device (since it'll be locked to previous settings)
 
-        //     // A. Analysis
-        //     std::vector<int> barHeights = getVizBars(
-        //         playhead, 
-        //         music.monoSamples, 
-        //         cfg, 
-        //         maxBars, 
-        //         fft.get_h()
-        //     );
+        if (deviceInitialized) ma_device_uninit(&device);
+        if (ma_device_init(NULL, &config, &device) != MA_SUCCESS) continue; 
+        deviceInitialized = true;
 
-        //     // B. Rendering
-        //     tv::Visualizer::Plots::draw_bars(fft, barHeights, barWidth);
-        //     fft.render(true);
-        //     updatePlaybackUI(playback, barHeights);
+        // start music
+        ma_device_start(&device); // creates its own thread for music playback
 
-        //     // C. Playback Progression
-        //     playhead += samplesPerFrame;
+        while (playbackInfo.isPlaying) { // this is falsed in our data_callback function 
+            std::this_thread::sleep_for(30_FPS); 
 
-        //     // D. Smart Timing (Compensate for processing time)
-        //     auto frameEnd = std::chrono::steady_clock::now();
-        //     std::this_thread::sleep_for(16ms - (frameEnd - frameStart));
+            // next music
+            if (kbhit()) { // if keyboard hit
+                int code = _getch();
+                if (code == 0 || code == 224) { // special keys
+                    int arrow = _getch(); // Catch the second value
+                    switch (arrow) {
+                        case 72: // UP
+                            // Maybe increase volume?
+                            break;
+                        case 80: // DOWN
+                            // Maybe decrease volume?
+                            break;
+                        case 75: // LEFT
+                            // Seek backward?
+                            break;
+                        case 77: // RIGHT
+                            playbackInfo.isPlaying = false; // Skip to next song
+                            break;
+                    }
+                } else { // Handle regular keys
+                    if (code == 'q') return 0;
+                    if (code == ' ') /* pause logic */;
+                }
+            }
 
-        //     // E. Basic Input (Simulated - replace with your actual input check)
-        //     // if (tv::poll_key() == 'n') break; 
-        // }
+            // equalizer stuff 
+            
+        }   
 
-        std::this_thread::sleep_for(seconds(5));
+        ma_device_stop(&device);
+
     }
 
-    kiss_fft_free(cfg);
     tv::reset_cursor();
     return 0;
 }
@@ -101,4 +127,3 @@ Put all headers in the include dir
     "${CMAKE_CURRENT_SOURCE_DIR}/libs/kissfft" 
 
 */
-

@@ -11,20 +11,20 @@
 #include <taglib/attachedpictureframe.h>
 #include <minimp3.h>
 #include <minimp3_ex.h>
+#include <miniaudio.h>
 
 inline constexpr char MUSIC_PATH[] = "../spotDL/music/";
 
 namespace fs = std::filesystem;
 
 struct Music {
-    int sample_rate;
-    std::atomic<size_t> playbackIndex{0}; // read/write is atomic without mutex
+    std::vector<uint8_t> coverArt;
+    std::vector<float> monoSamples;
     std::string title;
     std::string artist;
     std::string album;
     std::string duration;
-    std::vector<uint8_t> coverArt;
-    std::vector<float> monoSamples;
+    int sample_rate;
 
     Music() {}
     
@@ -100,7 +100,6 @@ struct Music {
     } 
 
 private:   
-    // Inside your Music class
     void load(const std::string& path) {
         mp3dec_t mp3d;
         mp3dec_init(&mp3d); 

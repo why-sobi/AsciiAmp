@@ -25,7 +25,8 @@ target_include_directories(MyMusicApp PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/libs/taglib/dist/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/libs/stb",
     "${CMAKE_CURRENT_SOURCE_DIR}/libs/minimp3",
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/kissfft" 
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/kissfft",
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/miniaudio/"
 )
 
 find_library(TAGLIB_PATH 

@@ -11,8 +11,8 @@ enum SAMPLE : uint8_t {
 };
 
 class Image {
-    int width = 0, height = 0, channels = 0;
     std::vector<uint8_t> rgb_pixels; // data is in 1D array [R,G,B,R,G,B ....] format
+    int width = 0, height = 0, channels = 0;
 
     float sigmoid(float x, float k, float midpoint) {
         // x should be 0.0 to 1.0. k is the "punch" (contrast).
