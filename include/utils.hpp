@@ -11,7 +11,10 @@ inline extern constexpr int FULL_WINDOW_WIDTH = 261;
 inline extern constexpr int IMAGE_H = 26;
 inline extern constexpr int IMAGE_W = 72;
 inline extern constexpr int TITLE_H = 5;
+inline extern constexpr int PLAYBACK_H = 7;
 
+
+inline extern constexpr char NORMAL[] = "\033[0m";
 inline extern constexpr char BOLD[] = "\033[1m";
 inline extern constexpr char DIM_BOLD[] = "\033[2m";
 inline extern constexpr char ITALIC[] = "\033[3m";
@@ -181,3 +184,18 @@ std::vector<int> getNbars(const Playback& playbackInfo, kiss_fft_cfg cfg, int ma
     return fullBars;
 }
 
+int64_t timestampToSeconds(const std::string& timestamp) {
+    int minutes = 0;
+    int seconds = 0;
+    char colon;
+
+    std::stringstream ss(timestamp);
+    
+    // Parse the string (Expected format "MM:SS")
+    if (ss >> minutes >> colon >> seconds) {
+        return (std::chrono::minutes(minutes) + std::chrono::seconds(seconds)).count();
+    }
+
+    // Return 0 if parsing fails
+    return std::chrono::seconds(0).count();
+}

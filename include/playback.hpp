@@ -10,12 +10,16 @@
 struct Playback { // stores info for current music (a minimal reference to music object) it'll help reduce casting cost that the C libraries depend on (void* BS)
     std::vector<float>* samples; // no copy of actual samples
     std::atomic<size_t> playhead{0}; // read/write is atomic without mutex
+    std::atomic<bool> pause{false};
+    std::atomic<std::chrono::steady_clock::time_point> startTime;
+    std::chrono::steady_clock::time_point pausedAt;
     bool isPlaying = false;
 
     void operator=(Music& obj) {
         this->samples = &(obj.monoSamples);
         this->playhead.store(0);
         this->isPlaying = true;
+        this->pause.store(false);
     }
 };
 
@@ -24,8 +28,8 @@ void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uin
     // 1. Cast the void pointer back to our C++ struct
     Playback* ctx = static_cast<Playback*>(pDevice->pUserData);
     
-    // Safety check: if no samples or not playing, output silence
-    if (!ctx || !ctx->isPlaying || ctx->samples == nullptr) {
+    // Safety check: if no samples or not playing or paused, output silence
+    if (!ctx || !ctx->isPlaying || ctx->samples == nullptr || ctx->pause.load()) {
         memset(pOutput, 0, frameCount * sizeof(float));
         return; 
     }

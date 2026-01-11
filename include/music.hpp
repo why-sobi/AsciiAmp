@@ -24,6 +24,8 @@ struct Music {
     std::string artist;
     std::string album;
     std::string duration;
+    std::string bitrate;
+    int channels;
     int sample_rate;
 
     Music() {}
@@ -47,6 +49,9 @@ struct Music {
                 if (f.audioProperties()) {
                     int sec = f.audioProperties()->lengthInSeconds();
                     duration = std::to_string(sec / 60) + ":" + (sec % 60 < 10 ? "0" : "") + std::to_string(sec % 60);
+                    bitrate = std::to_string(f.audioProperties()->bitrate());                                               // kbps
+                    channels = f.audioProperties()->channels();                                                             // 1 = Mono, 2 = Stereo
+                    sample_rate = f.audioProperties()->sampleRate();
                 }
 
                 // 2. Extract Album Art (APIC Frame)
@@ -111,9 +116,9 @@ private:
             throw std::runtime_error("minimp3 error code: " + std::to_string(error));
         }
 
-        this->monoSamples.reserve(info.samples / info.channels);
+        this->monoSamples.reserve(info.samples / channels);
 
-        if (info.channels == 2) { // [-1, 1] range for fft
+        if (channels == 2) { // [-1, 1] range for fft
             for (size_t i = 0; i < info.samples; i += 2) {
                 float mono = (info.buffer[i] + info.buffer[i + 1]) / 65536.0f;
                 this->monoSamples.push_back(mono);
