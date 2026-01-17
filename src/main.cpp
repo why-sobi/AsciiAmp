@@ -19,60 +19,10 @@
 #include <thread>
 #include <vector>
 #include <chrono>
-#include <conio.h>
 
 using namespace std::chrono_literals;
 namespace tv = termviz;
 namespace Viz = termviz::Visualizer::Plots;
-
-
-void runTimestamp(tv::Window& playback, const Music& music, const Playback& playbackInfo, int playback_width, int bar_width, int starting_col) {
-    int total_duration = timestampToSeconds(music.duration);
-
-    while (playbackInfo.isPlaying) { 
-        if (playbackInfo.pause.load()) continue;
-        auto now = std::chrono::steady_clock::now();
-        auto total_seconds = std::chrono::duration_cast<std::chrono::seconds>(now - playbackInfo.startTime.load()).count();
-        if (total_seconds > total_duration) total_seconds = total_duration;
-
-        // 1. Fixed-width Time Formatting
-        char current_time[16];
-        snprintf(current_time, sizeof(current_time), "%d:%02d", (int)(total_seconds / 60), (int)(total_seconds % 60));
-        
-        // 2. Progress Bar Math
-        int played_amount = (total_duration > 0) ? (int)(((float)total_seconds / total_duration) * bar_width) : 0;
-
-        std::string bar = "[" + std::string(played_amount, '#') + std::string(bar_width - played_amount, '-') + "]";
-        std::string progress_line = std::string(current_time) + bar + music.duration;
-
-
-        // 3. Dynamic Technical Status Line
-        // Uses the new bitrate, sample_rate, and channels data
-        std::string chan_text = (music.channels == 2) ? "Stereo" : (music.channels == 1 ? "Mono" : "Multi");
-        char tech_buf[128];
-        snprintf(tech_buf, sizeof(tech_buf), "%s kbps | %.1f kHz | %s", 
-                 music.bitrate.c_str(), music.sample_rate / 1000.0f, chan_text.c_str());
-        
-        std::string tech_status = tech_buf;
-        int tech_padding = (playback_width - tech_status.length()) / 2;
-
-        // 4. Keyboard Shortcuts Legend
-        std::string legend = " [P] Pause/Play    [B] Back    [Q] Quit    [<-/->] Restart/Next";
-        
-        // --- RENDERING ---
-        // Top Row: Real-time File Stats
-        playback.print(playback.get_h() / 2 - 2, starting_col, BOLD + tech_status + NORMAL);
-        
-        // Middle Row: Blue Progress Bar
-        playback.print(playback.get_h() / 2, starting_col, BOLD + progress_line + NORMAL, tv::COLOR(tv::COLOR::BLUE));
-
-        // Bottom Row: Controls
-        playback.print(playback.get_h() / 2 + 2, getPadding(legend, playback.get_w()), BOLD + legend + NORMAL);
-
-        playback.render(false);
-        std::this_thread::sleep_for(1s);
-    }
-}
 
 int main() {
     tv::clear_screen();
@@ -93,7 +43,7 @@ int main() {
     int bar_width      = playback_width - 12;           // substracting indices of timestamps (current and end) + the playback border
 
 
-    std::vector<termviz::COLOR> barColors(maxBars, termviz::COLOR(termviz::COLOR::BLUE));
+    std::vector<termviz::COLOR> barColors(maxBars, termviz::COLOR(termviz::COLOR::BLUE)); // all bars blue
 
     // objects needed
     Playback playbackInfo;
@@ -118,13 +68,7 @@ int main() {
         playbackInfo = music;                   // creating music reference for playback (reduce casting cost)
         prev = false;
 
-        // print and setup everything else
-        printCover(music);
-        title.clean_buffer();
-        title.print(0, getPadding(music.title, title.get_w()), format(toUpper(music.title), BOLD));
-        title.print(1, getPadding(music.artist, title.get_w()), format(toUpper(music.artist), UNDERLINE));
-        title.print(2, getPadding(music.album, title.get_w()), format(toUpper(music.album)));
-        title.render(true); 
+        screenInit(music, title);               // display everything at the start of the music
 
         // music related config
         config.sampleRate = music.sample_rate; // NOTE: When changing this we need to reconfigure our ma_device (since it'll be locked to previous settings)
@@ -143,59 +87,20 @@ int main() {
 
         while (playbackInfo.isPlaying) { // this is falsed in our data_callback function 
             // next music
-            if (kbhit()) { // if keyboard hit
-                int code = _getch();
-                if (code == 0 || code == 224) { // special keys
-                    int arrow = _getch(); // Catch the second value
-                    switch (arrow) {
-                        case 72: // UP
-                            // Maybe increase volume?
-                            break;
-                        case 80: // DOWN
-                            // Maybe decrease volume?
-                            break;
-                        case 75: // LEFT
-                            playbackInfo.playhead.store(0);
-                            playbackInfo.startTime.store(std::chrono::steady_clock::now());
-                            break;
-                        case 77: // RIGHT
-                            playbackInfo.isPlaying = false; // Skip to next song
-                            break;
-                    }
-                } else { // Handle regular keys
-                    if (code == 'q' || code == 'Q') {
-                        playbackInfo.isPlaying = false; 
-                        playback_thread.join(); 
-                        ma_device_stop(&device); 
-                        tv::reset_cursor(); 
-                        return 0;
-                    } 
-                    else if (code == 'b' || code == 'B') {prev = true; playbackInfo.isPlaying = false; break; }  
-                    else if (code == 'p' || code == 'P' || code == ' ') { 
-                        bool paused = playbackInfo.pause.load();
-                        if (!paused) {
-                            playbackInfo.pausedAt = std::chrono::steady_clock::now();
-                        } else {
-                            auto now = std::chrono::steady_clock::now();
-                            // pushing start time
-                            auto pause_duration = now - playbackInfo.pausedAt;
-                            // Shift startTime forward by the duration of the pause
-                            playbackInfo.startTime.store(playbackInfo.startTime.load() + pause_duration);
-                        }
-
-                        playbackInfo.pause.store(!paused);
-                    }
-                }
+            char code = controller(playbackInfo, &device); 
+            switch(code) { // rest of the controls are handled inside the function 
+                case 'q': playback_thread.join(); return 0;
+                case 'b': prev = true; playbackInfo.isPlaying = false; break;
+                default: break;
             }
-            
             
             if (!playbackInfo.pause.load()) {
                 // equalizer stuff
-                Viz::draw_bars(fft, getNbars(playbackInfo, cfg, maxBars, fft.get_h()), barWidth, barColors);
+                Viz::draw_bars(fft, getNbars(playbackInfo, cfg, maxBars, fft.get_h()), barWidth, barColors, '#');
                 fft.render();
             }
         
-            std::this_thread::sleep_for(30_FPS); 
+            std::this_thread::sleep_for(25_FPS); 
         }   
 
         playback_thread.join();
@@ -214,5 +119,4 @@ int main() {
 Put all headers in the include dir
 "${CMAKE_CURRENT_SOURCE_DIR}libs/stb" 
     "${CMAKE_CURRENT_SOURCE_DIR}/libs/kissfft" 
-
 */

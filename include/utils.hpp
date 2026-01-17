@@ -6,6 +6,53 @@
 #include <kiss_fft.h>
 
 #include <vector>
+#include <chrono>
+#include <thread>
+
+
+#ifdef _WIN32
+    #include <conio.h>  // For Windows kbhit() and getch()
+#else
+    #include <termios.h>
+    #include <unistd.h>
+    #include <fcntl.h>
+    #include <stdio.h>
+
+    // Linux implementation of kbhit()
+    int kbhit() {
+        struct termios oldt, newt;
+        int ch;
+        int oldf;
+        tcgetattr(STDIN_FILENO, &oldt);
+        newt = oldt;
+        newt.c_lflag &= ~(ICANON | ECHO);
+        tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+        oldf = fcntl(STDIN_FILENO, F_GETFL, 0);
+        fcntl(STDIN_FILENO, F_SETFL, oldf | O_NONBLOCK);
+        ch = getchar();
+        tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+        fcntl(STDIN_FILENO, F_SETFL, oldf);
+        if(ch != EOF) {
+            ungetc(ch, stdin);
+            return 1;
+        }
+        return 0;
+    }
+
+    // Linux implementation of getch()
+    int _getch() {
+        struct termios oldt, newt;
+        int ch;
+        tcgetattr(STDIN_FILENO, &oldt);
+        newt = oldt;
+        newt.c_lflag &= ~(ICANON | ECHO);
+        tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+        ch = getchar();
+        tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+        return ch;
+    }
+#endif
+
 
 inline extern constexpr int FULL_WINDOW_WIDTH = 261;
 inline extern constexpr int IMAGE_H = 26;
@@ -198,4 +245,137 @@ int64_t timestampToSeconds(const std::string& timestamp) {
 
     // Return 0 if parsing fails
     return std::chrono::seconds(0).count();
+}
+
+void runTimestamp(termviz::Window& playback, const Music& music, const Playback& playbackInfo, int playback_width, int bar_width, int starting_col) {
+    namespace tv = termviz;
+    namespace Viz = termviz::Visualizer::Plots;
+    
+    int total_duration = timestampToSeconds(music.duration);
+
+    while (playbackInfo.isPlaying) { 
+        if (playbackInfo.pause.load()) continue;
+        auto now = std::chrono::steady_clock::now();
+        auto total_seconds = std::chrono::duration_cast<std::chrono::seconds>(now - playbackInfo.startTime.load()).count();
+        if (total_seconds > total_duration) total_seconds = total_duration;
+
+        // 1. Fixed-width Time Formatting
+        char current_time[16];
+        snprintf(current_time, sizeof(current_time), "%d:%02d", (int)(total_seconds / 60), (int)(total_seconds % 60));
+        
+        // 2. Progress Bar Math
+        int played_amount = (total_duration > 0) ? (int)(((float)total_seconds / total_duration) * bar_width) : 0;
+
+        std::string bar = "[" + std::string(played_amount, '#') + std::string(bar_width - played_amount, '-') + "]";
+        std::string progress_line = std::string(current_time) + bar + music.duration;
+
+
+        // 3. Dynamic Technical Status Line
+        // Uses the new bitrate, sample_rate, and channels data
+        std::string chan_text = (music.channels == 2) ? "Stereo" : (music.channels == 1 ? "Mono" : "Multi");
+        char tech_buf[128];
+        snprintf(tech_buf, sizeof(tech_buf), "%s kbps | %.1f kHz | %s", 
+                 music.bitrate.c_str(), music.sample_rate / 1000.0f, chan_text.c_str());
+        
+        std::string tech_status = tech_buf;
+        int tech_padding = (playback_width - tech_status.length()) / 2;
+
+        // 4. Keyboard Shortcuts Legend
+        std::string legend = " [P] Pause/Play    [B] Back    [Q] Quit    [<-/->] Restart/Next";
+        
+        // --- RENDERING ---
+        // Top Row: Real-time File Stats
+        playback.print(playback.get_h() / 2 - 2, starting_col, BOLD + tech_status + NORMAL);
+        
+        // Middle Row: Blue Progress Bar
+        playback.print(playback.get_h() / 2, starting_col, BOLD + progress_line + NORMAL, tv::COLOR(tv::COLOR::BLUE));
+
+        // Bottom Row: Controls
+        playback.print(playback.get_h() / 2 + 2, getPadding(legend, playback.get_w()), BOLD + legend + NORMAL);
+
+        playback.render(false);
+        std::this_thread::sleep_for(1s);
+    }
+}
+
+inline void screenInit(const Music& music, termviz::Window& title) { // display everthing at the start of the music
+    // print and setup everything else
+    printCover(music);
+    title.clean_buffer();
+    title.print(0, getPadding(music.title, title.get_w()), format(toUpper(music.title), BOLD));
+    title.print(1, getPadding(music.artist, title.get_w()), format(toUpper(music.artist), UNDERLINE));
+    title.print(2, getPadding(music.album, title.get_w()), format(toUpper(music.album)));
+    title.render(true); 
+}
+
+// takes action based on keyboard input and return the key pressed (which is used for some controls in main)
+char controller(Playback& playbackInfo, ma_device *pDevice) { 
+    if (kbhit()) {
+        int code = _getch();
+
+        // Cross-platform Arrow Key Handling
+        // Windows: Starts with 0 or 224
+        // Linux: Starts with Escape (27), then '[', then A, B, C, or D
+        #ifdef _WIN32
+        if (code == 0 || code == 224) {
+            int arrow = _getch();
+            switch (arrow) {
+                case 72: return 'U'; // UP
+                case 80: return 'D'; // DOWN
+                case 75: 
+                    playbackInfo.playhead.store(0);
+                    playbackInfo.startTime.store(std::chrono::steady_clock::now());
+                    break; 
+                case 77: 
+                    playbackInfo.isPlaying = false; // Skip to next song 
+                    break;
+            }
+        }
+        #else
+        if (code == 27) { // Escape sequence
+            _getch(); // Skip '['
+            int arrow = _getch();
+            switch (arrow) {
+                case 'A': return 'U'; // UP
+                case 'B': return 'D'; // DOWN
+                case 'D': 
+                    playbackInfo.playhead.store(0);
+                    playbackInfo.startTime.store(std::chrono::steady_clock::now());
+                    break;                
+                case 'C':
+                    playbackInfo.isPlaying = false; // Skip to next song 
+                    break;
+            }
+        }
+        #endif
+
+        // Standard Actions
+        if (code == 'q' || code == 'Q') {
+            playbackInfo.isPlaying = false; 
+            ma_device_stop(pDevice); 
+            ma_device_uninit(pDevice);
+            termviz::reset_cursor(); 
+            return 'q';
+        } 
+        
+        // Navigation Logic (Normalized arrow returns)
+        char action = (char)code;
+        // If we returned U, D, L, R from the arrow logic above, handle it here
+        // (Simplified for brevity, apply your playbackInfo logic here)
+        
+        if (code == 'p' || code == 'P' || code == ' ') {
+            bool paused = playbackInfo.pause.load();
+            if (!paused) {
+                playbackInfo.pausedAt = std::chrono::steady_clock::now();
+            } else {
+                auto now = std::chrono::steady_clock::now();
+                auto pause_duration = now - playbackInfo.pausedAt;
+                playbackInfo.startTime.store(playbackInfo.startTime.load() + 
+                    std::chrono::duration_cast<std::chrono::milliseconds>(pause_duration));
+            }
+            playbackInfo.pause.store(!paused);
+        }
+        return code;
+    }
+    return '\0';
 }
