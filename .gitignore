@@ -3,7 +3,6 @@ build/
 external/
 
 # music setup/files
-spotDL/music/
-spotDL/venv/
+music/
 
-*.txt
+todo.txt
