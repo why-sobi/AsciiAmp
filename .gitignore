@@ -4,4 +4,4 @@ build/
 # music setup/files
 music/
 
-todo.txt
+*.txt

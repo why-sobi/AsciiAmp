@@ -13,7 +13,7 @@
 #include <minimp3_ex.h>
 #include <miniaudio.h>
 
-inline constexpr char MUSIC_PATH[] = "../music/";
+inline constexpr char MUSIC_PATH[] = "../music";
 
 namespace fs = std::filesystem;
 
