@@ -1,0 +1,21 @@
+[submodule "external/kissfft"]
+	path = external/kissfft
+	url = https://github.com/mborgerding/kissfft.git
+[submodule "external/minimp3"]
+	path = external/minimp3
+	url = https://github.com/lieff/minimp3.git
+[submodule "external/stb"]
+	path = external/stb
+	url = https://github.com/nothings/stb.git
+[submodule "external/termviz"]
+	path = external/termviz
+	url = https://github.com/why-sobi/termviz.git
+[submodule "external/taglib"]
+	path = external/taglib
+	url = https://github.com/taglib/taglib.git
+[submodule "eexternal/miniaudio"]
+	path = eexternal/miniaudio
+	url = https://github.com/mackron/miniaudio.git
+[submodule "external/miniaudio"]
+	path = external/miniaudio
+	url = https://github.com/mackron/miniaudio.git
