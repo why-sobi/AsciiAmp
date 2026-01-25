@@ -9,7 +9,7 @@ To get AsciiAmp running on your machine, follow these steps. This project uses G
 ### 1. Clone the Repository
 
 ```powershell
-git clone --recursive https://github.com/your-username/AsciiAmp.git
+git clone --recursive https://github.com/why-sobi/AsciiAmp.git
 cd AsciiAmp
 
 ```
