@@ -59,8 +59,8 @@ cmake --build .
 | --- | --- |
 | `Space` / `P` | Pause / Play |
 | `Q` | Quit Safely |
-| `B` | Back (Restart Track) |
-| `Arrows` | Seek / Next Track |
+| `B` | Previous Track |
+| `Arrows` | Restart Track / Next Track |
 
 ---
 
