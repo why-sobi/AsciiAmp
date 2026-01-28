@@ -71,7 +71,7 @@ AsciiAmp relies on the following incredible open-source libraries:
 * **[miniaudio](https://github.com/mackron/miniaudio)** - Audio playback engine.
 * **[TagLib](https://github.com/taglib/taglib)** - Audio metadata and bitrate parsing.
 * **[kissfft](https://github.com/mborgerding/kissfft)** - Fast Fourier Transform for the visualizer.
-* **[termviz](https://www.google.com/search?q=https://github.com/why-sobi/termviz)** - Terminal UI and ASCII rendering logic.
+* **[termviz](https://github.com/why-sobi/termviz)** - Terminal UI and ASCII rendering logic.
 * **[minimp3](https://github.com/lieff/minimp3)** - Minimalistic MP3 decoder.
 * **[stb](https://github.com/nothings/stb.git)** - Reading & Modifying Image
 ---
