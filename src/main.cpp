@@ -7,7 +7,7 @@
 #include <vector>
 
 // 3rd party includes
-#include <termviz.hpp>
+#include <echo.hpp>
 
 // project includes
 #include <music.hpp>
@@ -21,8 +21,8 @@
 #include <chrono>
 
 using namespace std::chrono_literals;
-namespace tv = termviz;
-namespace Viz = termviz::Visualizer::Plots;
+namespace tv = echo;
+namespace Viz = echo::Visualizer::Plots;
 
 int main() {
     tv::clear_screen();
@@ -43,7 +43,7 @@ int main() {
     int bar_width      = playback_width - 12;           // substracting indices of timestamps (current and end) + the playback border
 
 
-    std::vector<termviz::COLOR> barColors(maxBars, termviz::COLOR(termviz::COLOR::BLUE)); // all bars blue
+    std::vector<echo::COLOR> barColors(maxBars, echo::COLOR(echo::COLOR::BLUE)); // all bars blue
 
     // objects needed
     Playback playbackInfo;

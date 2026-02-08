@@ -2,7 +2,7 @@
 #include <music.hpp>
 #include <playback.hpp>
 
-#include <termviz.hpp>
+#include <echo.hpp>
 #include <kiss_fft.h>
 
 #include <vector>
@@ -80,38 +80,38 @@ T random_gen(const T min, const T max) {
 
 void printCover(const Music& music) { // wrapping in function release memory asap
     int window_width = IMAGE_W, window_height = IMAGE_H; // as height is double than width in terminal
-    termviz::Window window(1, 1, window_width, window_height, "BOX");
+    echo::Window window(1, 1, window_width, window_height, "BOX");
 
     Image img(music.coverArt);
     img.downScale(window.get_w(), window.get_h(), SAMPLE::BOX);
     
     auto [characters, colors] = img.toAscii();
 
-    termviz::Visualizer::Plots::draw_frame(window, characters, colors);
+    echo::Visualizer::Plots::draw_frame(window, characters, colors);
     window.render();
 } 
 
 void printCover(const std::string& path = "C:/Users/shadows box/Downloads/2.jpeg") { // wrapping in function release memory asap
     int window_width = 75, window_height = 25; // as height is double than width in terminal
-    termviz::Window window(1, 1, window_width, window_height);
+    echo::Window window(1, 1, window_width, window_height);
 
     Image img(path);
     img.downScale(window.get_w(), window.get_h());
 
     auto [characters, colors] = img.toAscii();
-    termviz::Visualizer::Plots::draw_frame(window, characters, colors);
+    echo::Visualizer::Plots::draw_frame(window, characters, colors);
     window.render();
 }
 
-void draw_random_bars(termviz::Window& win) {
+void draw_random_bars(echo::Window& win) {
     const int max_bar_width = 7;
-    int get_max_bars = termviz::Visualizer::Plots::getMaxBars(win, max_bar_width);
+    int get_max_bars = echo::Visualizer::Plots::getMaxBars(win, max_bar_width);
 
     std::vector<int> heights(get_max_bars);
-    std::vector<termviz::COLOR> colors(get_max_bars, termviz::COLOR::BLUE);
+    std::vector<echo::COLOR> colors(get_max_bars, echo::COLOR::BLUE);
     for (int& val : heights) { val = random_gen<int>(0, win.get_h()); }
 
-    termviz::Visualizer::Plots::draw_bars(win, heights, max_bar_width, colors);
+    echo::Visualizer::Plots::draw_bars(win, heights, max_bar_width, colors);
     win.render(true);
 }
 
@@ -247,9 +247,9 @@ int64_t timestampToSeconds(const std::string& timestamp) {
     return std::chrono::seconds(0).count();
 }
 
-void runTimestamp(termviz::Window& playback, const Music& music, const Playback& playbackInfo, int playback_width, int bar_width, int starting_col) {
-    namespace tv = termviz;
-    namespace Viz = termviz::Visualizer::Plots;
+void runTimestamp(echo::Window& playback, const Music& music, const Playback& playbackInfo, int playback_width, int bar_width, int starting_col) {
+    namespace tv = echo;
+    namespace Viz = echo::Visualizer::Plots;
     
     int total_duration = timestampToSeconds(music.duration);
 
@@ -298,7 +298,7 @@ void runTimestamp(termviz::Window& playback, const Music& music, const Playback&
     }
 }
 
-inline void screenInit(const Music& music, termviz::Window& title) { // display everthing at the start of the music
+inline void screenInit(const Music& music, echo::Window& title) { // display everthing at the start of the music
     // print and setup everything else
     printCover(music);
     title.clean_buffer();
@@ -354,7 +354,7 @@ char controller(Playback& playbackInfo, ma_device *pDevice) {
             playbackInfo.isPlaying = false; 
             ma_device_stop(pDevice); 
             ma_device_uninit(pDevice);
-            termviz::reset_cursor(); 
+            echo::reset_cursor(); 
             return 'q';
         } 
         

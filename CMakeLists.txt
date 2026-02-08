@@ -21,7 +21,7 @@ target_compile_definitions(AsciiAmp PRIVATE KISS_FFT_USE_FLOAT=1)
 target_compile_definitions(AsciiAmp PRIVATE TAGLIB_STATIC)
 target_include_directories(AsciiAmp PRIVATE 
     include    
-    external/termviz
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/echo/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/taglib/dist/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/stb",
     "${CMAKE_CURRENT_SOURCE_DIR}/external/minimp3",

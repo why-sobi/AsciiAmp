@@ -3,7 +3,7 @@
 #include <iostream>
 #include <vector>
 #include <stb_image.h>
-#include <termviz.hpp> // for colors
+#include <echo.hpp> // for colors
 
 enum SAMPLE : uint8_t { 
     BILINEAR_INTERPOLATION,                                                 // extract features from neighbours and weighing their features based on distance
@@ -169,7 +169,7 @@ public:
         this->height = new_height;
     }
 
-    std::pair<std::vector<char>, std::vector<termviz::COLOR>> toAscii(float contrast=10.0f, float brightness=10.0f, float midpoint=0.35f) {
+    std::pair<std::vector<char>, std::vector<echo::COLOR>> toAscii(float contrast=10.0f, float brightness=10.0f, float midpoint=0.35f) {
         // Increase contrast to make it punchier
         // Decrease brightness to "darken" the detection
         
@@ -179,7 +179,7 @@ public:
         midpoint = midpoint - (brightness / 100.0f); // tweak brightness to shift the curve (lower midpoint makes everything move towards a light color range)
 
         std::vector<char> chars;
-        std::vector<termviz::COLOR> colors;
+        std::vector<echo::COLOR> colors;
 
         chars.reserve(this->width * this->height);
         colors.reserve(this->width * this->height); 

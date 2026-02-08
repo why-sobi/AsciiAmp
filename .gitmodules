@@ -13,6 +13,7 @@
 [submodule "external/stb"]
 	path = external/stb
 	url = https://github.com/nothings/stb.git
-[submodule "external/termviz"]
-	path = external/termviz
-	url = https://github.com/why-sobi/termviz.git
+
+[submodule "external/echo"]
+	path = external/echo
+	url = https://github.com/why-sobi/echo.git
