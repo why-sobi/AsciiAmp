@@ -24,9 +24,10 @@ using namespace std::chrono_literals;
 namespace tv = echo;
 namespace Viz = echo::Visualizer::Plots;
 
-int main() {
+int main(int argc, char* argv[]) {
     tv::clear_screen();
-    std::vector<fs::path> musicLibrary = getMP3Files(MUSIC_PATH); // storing all the paths of the music (we don't create music objects yet to save memory)
+    std::vector<fs::path> musicLibrary;
+    (argc == 2)? musicLibrary = getMP3Files(argv[1]) : musicLibrary = getMP3Files(); // storing all the paths of the music (we don't create music objects yet to save memory)
 
     tv::Window fft(IMAGE_W + 1, 1, FULL_WINDOW_WIDTH - IMAGE_W - 1, IMAGE_H, "Visualizer");
     tv::Window title(1, IMAGE_H + 1, FULL_WINDOW_WIDTH - 1, TITLE_H, "Now Playing");

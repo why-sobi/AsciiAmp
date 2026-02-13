@@ -13,8 +13,6 @@
 #include <minimp3_ex.h>
 #include <miniaudio.h>
 
-inline constexpr char MUSIC_PATH[] = "../music";
-
 namespace fs = std::filesystem;
 
 struct Music {
@@ -133,7 +131,7 @@ private:
     }
 };
 
-std::vector<fs::path> getMP3Files(const std::string& dir) {
+std::vector<fs::path> getMP3Files(const std::string& dir = "../music") {
     std::vector<fs::path> mp3Files;
 
     if (!fs::exists(dir) || !fs::is_directory(dir)) {
