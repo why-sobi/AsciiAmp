@@ -1,3 +1,5 @@
+#pragma once 
+
 #include <image.hpp>
 #include <music.hpp>
 #include <playback.hpp>
