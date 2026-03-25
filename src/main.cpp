@@ -21,17 +21,16 @@
 #include <chrono>
 
 using namespace std::chrono_literals;
-namespace tv = echo;
 namespace Viz = echo::Visualizer::Plots;
 
 int main(int argc, char* argv[]) {
-    tv::clear_screen();
+    echo::clear_screen();
     std::vector<fs::path> musicLibrary;
     (argc == 2)? musicLibrary = getMP3Files(argv[1]) : musicLibrary = getMP3Files(); // storing all the paths of the music (we don't create music objects yet to save memory)
 
-    tv::Window fft(IMAGE_W + 1, 1, FULL_WINDOW_WIDTH - IMAGE_W - 1, IMAGE_H, "Visualizer");
-    tv::Window title(1, IMAGE_H + 1, FULL_WINDOW_WIDTH - 1, TITLE_H, "Now Playing");
-    tv::Window playback(1, IMAGE_H + TITLE_H + 1, FULL_WINDOW_WIDTH - 1, PLAYBACK_H, "Playback");
+    echo::Window fft(IMAGE_W + 1, 1, FULL_WINDOW_WIDTH - IMAGE_W - 1, IMAGE_H, "Visualizer");
+    echo::Window title(1, IMAGE_H + 1, FULL_WINDOW_WIDTH - 1, TITLE_H, "Now Playing");
+    echo::Window playback(1, IMAGE_H + TITLE_H + 1, FULL_WINDOW_WIDTH - 1, PLAYBACK_H, "Playback");
 
     int barWidth = 7;
     int maxBars = Viz::getMaxBars(fft, barWidth);
@@ -45,6 +44,7 @@ int main(int argc, char* argv[]) {
 
 
     std::vector<echo::COLOR> barColors(maxBars, echo::COLOR(echo::COLOR::BLUE)); // all bars blue
+    std::vector<int> prevBars(0);                                                // empty vector initialization
 
     // objects needed
     Playback playbackInfo;
@@ -97,7 +97,9 @@ int main(int argc, char* argv[]) {
             
             if (!playbackInfo.pause.load()) {
                 // equalizer stuff
-                Viz::draw_bars(fft, getNbars(playbackInfo, cfg, maxBars, fft.get_h()), barWidth, barColors, '#');
+                
+                averageBarHeights(prevBars, getNbars(playbackInfo, cfg, maxBars, fft.get_h()));
+                Viz::draw_bars(fft, prevBars, barWidth, barColors, '#');
                 fft.render();
             }
         
@@ -111,13 +113,6 @@ int main(int argc, char* argv[]) {
 
     free(cfg);
 
-    tv::reset_cursor();
+    echo::reset_cursor();
     return 0;
 }
-
-
-/*
-Put all headers in the include dir
-"${CMAKE_CURRENT_SOURCE_DIR}libs/stb" 
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/kissfft" 
-*/

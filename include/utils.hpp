@@ -56,7 +56,7 @@
 #endif
 
 
-inline extern constexpr int FULL_WINDOW_WIDTH = 261;
+inline extern constexpr int FULL_WINDOW_WIDTH = 257;
 inline extern constexpr int IMAGE_H = 26;
 inline extern constexpr int IMAGE_W = 72;
 inline extern constexpr int TITLE_H = 5;
@@ -380,4 +380,23 @@ char controller(Playback& playbackInfo, ma_device *pDevice) {
         return code;
     }
     return '\0';
+}
+
+/*
+    Args:
+    > prevBars: expects a global vector (uses reference to ensure no copy)
+    > newBars : expects a return value from a function using the NRVO
+    Returns:
+    > Updates prevBars inplace
+*/
+void averageBarHeights(std::vector<int>& prevBars, std::vector<int> newBars) {
+    if (prevBars.size() == 0) {
+        prevBars = std::move(newBars); // new bars will not ever have the size 0
+        return;
+    }
+    
+    for (int i = 0; i < prevBars.size(); i++)
+        prevBars[i] = (prevBars[i] + newBars[i]) / 2;
+    
+    return;
 }
