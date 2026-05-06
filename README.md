@@ -2,7 +2,7 @@
 
 A high-performance CLI music player featuring a real-time ASCII visualizer, built with C++, Miniaudio, and TagLib.
 
-## 🚀 Quick Start
+## Quick Start
 
 To get AsciiAmp running on your machine, follow these steps. This project uses Git Submodules to manage dependencies, so ensure you clone recursively.
 
@@ -53,7 +53,7 @@ cmake --build .
 
 ---
 
-## 🎹 Controls
+## Controls
 
 | Key | Action |
 | --- | --- |
@@ -64,7 +64,7 @@ cmake --build .
 
 ---
 
-## 🛠 Dependencies
+## Dependencies
 
 AsciiAmp relies on the following incredible open-source libraries:
 
@@ -81,7 +81,7 @@ AsciiAmp relies on the following incredible open-source libraries:
 
 ---
 
-## 📜 License
+## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
